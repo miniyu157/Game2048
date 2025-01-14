@@ -1,0 +1,80 @@
+﻿<Window x:Class="Game2048.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:local="clr-namespace:Game2048"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:ws="https://schemas.elecho.dev/wpfsuite"
+        Title="2048 Game"
+        Width="400"
+        Height="513"
+        ws:WindowOption.Backdrop="Acrylic"
+        Background="Transparent"
+        ResizeMode="CanMinimize"
+        mc:Ignorable="d">
+
+    <Grid>
+        <DockPanel>
+            <Grid DockPanel.Dock="Top">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="5*" />
+                    <ColumnDefinition Width="5*" />
+                </Grid.ColumnDefinitions>
+
+                <Border Grid.Column="0"
+                        Height="80"
+                        Margin="10"
+                        Background="#59FFEFF9"
+                        CornerRadius="10">
+                    <Border Margin="6" Background="LightPink" CornerRadius="10">
+                        <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+                            <TextBlock Name="scoreTitle" FontSize="24" Foreground="White" TextAlignment="Center" />
+                            <TextBlock Name="scoreContent"
+                                       FontSize="12"
+                                       Foreground="White"
+                                       Text="Score: 00"
+                                       TextAlignment="Center"
+                                       Visibility="Collapsed" />
+                        </StackPanel>
+                    </Border>
+                </Border>
+
+                <Border Grid.Column="1"
+                        Height="80"
+                        Margin="0,10,10,10"
+                        Background="#59FFEFF9"
+                        CornerRadius="10">
+                    <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Orientation="Horizontal">
+                        <ws:Button Name="resetBut" Margin="6,6,3,6" Content="重置" Style="{StaticResource CustomButtonStyle}" />
+                        <ws:Button Name="undoBut" Margin="3,6,3,6" Content="撤销" Style="{StaticResource CustomButtonStyle}" />
+                        <ws:Button Name="autoBut" Margin="3,6,6,6" Content="自动" Style="{StaticResource CustomButtonStyle}" />
+                    </StackPanel>
+                </Border>
+            </Grid>
+
+            <Border Height="{Binding ActualWidth, RelativeSource={RelativeSource Self}}"
+                    Margin="10,0,10,10"
+                    VerticalAlignment="Bottom"
+                    Background="#59FFEFF9"
+                    CornerRadius="10"
+                    DockPanel.Dock="Bottom">
+                <!--  单元格外边距为2（则最外层边距为6）  -->
+                <Grid Name="GameGrid" Margin="4">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="*" />
+                        <RowDefinition Height="*" />
+                        <RowDefinition Height="*" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                </Grid>
+            </Border>
+
+        </DockPanel>
+    </Grid>
+</Window>
