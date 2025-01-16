@@ -6,75 +6,149 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:ws="https://schemas.elecho.dev/wpfsuite"
         Title="2048 Game"
-        Width="400"
-        Height="513"
+        Width="650"
+        Height="509"
         ws:WindowOption.Backdrop="Acrylic"
+        ws:WindowOption.IsDarkMode="{DynamicResource IsDarkMode}"
         Background="Transparent"
         ResizeMode="CanMinimize"
         mc:Ignorable="d">
-
     <Grid>
         <DockPanel>
-            <Grid DockPanel.Dock="Top">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="5*" />
-                    <ColumnDefinition Width="5*" />
-                </Grid.ColumnDefinitions>
+            <StackPanel Width="380">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="5*" />
+                        <ColumnDefinition Width="5*" />
+                    </Grid.ColumnDefinitions>
 
-                <Border Grid.Column="0"
-                        Height="80"
-                        Margin="10"
-                        Background="#59FFEFF9"
-                        CornerRadius="10">
-                    <Border Margin="6" Background="LightPink" CornerRadius="10">
-                        <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
-                            <TextBlock Name="scoreTitle" FontSize="24" Foreground="White" TextAlignment="Center" />
-                            <TextBlock Name="scoreContent"
-                                       FontSize="12"
-                                       Foreground="White"
-                                       Text="Score: 00"
-                                       TextAlignment="Center"
-                                       Visibility="Collapsed" />
+                    <!--  Card Color #59FFEFF9  -->
+                    <Border Grid.Column="0"
+                            Height="80"
+                            Margin="10,10,5,10"
+                            Background="{DynamicResource CardBackgroundBrush}"
+                            CornerRadius="10">
+                        <Border Name="titleBorder" Margin="6" Background="LightPink" CornerRadius="10">
+                            <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+                                <TextBlock Name="scoreTitle" FontSize="24" Foreground="White" TextAlignment="Center" />
+                                <TextBlock Name="scoreContent"
+                                           FontSize="12"
+                                           Foreground="White"
+                                           Text="Score: 00"
+                                           TextAlignment="Center"
+                                           Visibility="Collapsed" />
+                            </StackPanel>
+                        </Border>
+                    </Border>
+
+                    <Border Grid.Column="1"
+                            Height="80"
+                            Margin="5,10,10,10"
+                            Background="{DynamicResource CardBackgroundBrush}"
+                            CornerRadius="10">
+                        <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Orientation="Horizontal">
+                            <ws:Button Name="resetBut"
+                                       Margin="6,6,3,6"
+                                       Click="ResetBut_Click"
+                                       Content="重置"
+                                       Style="{StaticResource CustomButtonStyle}" />
+                            <ws:Button Name="undoBut"
+                                       Margin="3,6,3,6"
+                                       Click="UndoBut_Click"
+                                       Content="撤销"
+                                       Style="{StaticResource CustomButtonStyle}" />
+                            <ws:Button Name="autoBut"
+                                       Margin="3,6,6,6"
+                                       Click="AutoBut_Click"
+                                       Content="自动"
+                                       Style="{StaticResource CustomButtonStyle}" />
                         </StackPanel>
                     </Border>
-                </Border>
-
-                <Border Grid.Column="1"
-                        Height="80"
-                        Margin="0,10,10,10"
-                        Background="#59FFEFF9"
-                        CornerRadius="10">
-                    <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Orientation="Horizontal">
-                        <ws:Button Name="resetBut" Margin="6,6,3,6" Content="重置" Style="{StaticResource CustomButtonStyle}" />
-                        <ws:Button Name="undoBut" Margin="3,6,3,6" Content="撤销" Style="{StaticResource CustomButtonStyle}" />
-                        <ws:Button Name="autoBut" Margin="3,6,6,6" Content="自动" Style="{StaticResource CustomButtonStyle}" />
-                    </StackPanel>
-                </Border>
-            </Grid>
-
-            <Border Height="{Binding ActualWidth, RelativeSource={RelativeSource Self}}"
-                    Margin="10,0,10,10"
-                    VerticalAlignment="Bottom"
-                    Background="#59FFEFF9"
-                    CornerRadius="10"
-                    DockPanel.Dock="Bottom">
-                <!--  单元格外边距为2（则最外层边距为6）  -->
-                <Grid Name="GameGrid" Margin="4">
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="*" />
-                        <RowDefinition Height="*" />
-                        <RowDefinition Height="*" />
-                        <RowDefinition Height="*" />
-                    </Grid.RowDefinitions>
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="*" />
-                    </Grid.ColumnDefinitions>
                 </Grid>
-            </Border>
 
+                <Border Height="{Binding ActualWidth, RelativeSource={RelativeSource Self}}"
+                        Margin="10,0,10,10"
+                        VerticalAlignment="Bottom"
+                        Background="{DynamicResource CardBackgroundBrush}"
+                        CornerRadius="10">
+                    <!--  单元格外边距为2（则最外层边距为6）  -->
+                    <Grid x:Name="gameGrid" Margin="4">
+                        <!--  行和列定义将在代码中动态设置  -->
+                    </Grid>
+                </Border>
+
+            </StackPanel>
+
+            <DockPanel>
+                <Border Margin="0,10,10,10" Background="{DynamicResource CardBackgroundBrush}" CornerRadius="10">
+                    <!--  content 的上边距  -->
+                    <Border Margin="0,20,0,0">
+                        <ws:StackPanel Spacing="15">
+                            <!--  主题  -->
+                            <ws:StackPanel Margin="20,0" Orientation="Horizontal" Spacing="10">
+                                <TextBlock VerticalAlignment="Center" Foreground="{DynamicResource ForegroundBrush}" Text="主题" />
+                                <ws:ComboBox Name="themeComboBox"
+                                             Width="120"
+                                             HorizontalAlignment="Right"
+                                             Focusable="False"
+                                             SelectedIndex="2"
+                                             SelectionChanged="ThemeComboBox_SelectionChanged">
+                                    <ws:ComboBoxItem>亮色</ws:ComboBoxItem>
+                                    <ws:ComboBoxItem>暗色</ws:ComboBoxItem>
+                                    <ws:ComboBoxItem>跟随系统</ws:ComboBoxItem>
+                                </ws:ComboBox>
+                            </ws:StackPanel>
+
+                            <!--  更强力的自动游玩  -->
+                            <ws:CheckBox Name="autoPlayStrengthCheckBox"
+                                         Margin="20,0"
+                                         Content="更强力的自动游玩"
+                                         Focusable="False"
+                                         FontSize="13"
+                                         Foreground="{DynamicResource ForegroundBrush}" />
+
+                            <!--  到达临界值时扩容  -->
+                            <ws:CheckBox Name="expandOnThresholdCheckBox"
+                                         Margin="20,0"
+                                         Content="到达临界值时扩容"
+                                         Focusable="False"
+                                         FontSize="13"
+                                         Foreground="{DynamicResource ForegroundBrush}"
+                                         IsChecked="True" />
+
+                            <!--  临界值  -->
+                            <ws:StackPanel Margin="20,0" Orientation="Horizontal" Spacing="10">
+                                <TextBlock VerticalAlignment="Center" Foreground="{DynamicResource ForegroundBrush}" Text="临界值" />
+                                <ws:TextBox Name="thresholdTextBox"
+                                            Width="70"
+                                            PreviewTextInput="NumberTextBoxs_PreviewTextInput"
+                                            Text="2048"
+                                            TextChanged="NumberTextBoxs_TextChanged" />
+                            </ws:StackPanel>
+
+                            <!--  格子大小  -->
+                            <ws:StackPanel Margin="20,0" Orientation="Horizontal" Spacing="10">
+                                <TextBlock VerticalAlignment="Center" Foreground="{DynamicResource ForegroundBrush}" Text="初始格子大小" />
+                                <ws:TextBox Name="colTextBox"
+                                            Width="{Binding ActualHeight, RelativeSource={RelativeSource Self}}"
+                                            PreviewTextInput="NumberTextBoxs_PreviewTextInput"
+                                            Text="4"
+                                            TextAlignment="Center"
+                                            TextChanged="NumberTextBoxs_TextChanged" />
+                                <TextBlock VerticalAlignment="Center" Foreground="{DynamicResource ForegroundBrush}" Text="x" />
+                                <ws:TextBox Name="rowTextBox"
+                                            Width="{Binding ActualHeight, RelativeSource={RelativeSource Self}}"
+                                            PreviewTextInput="NumberTextBoxs_PreviewTextInput"
+                                            Text="4"
+                                            TextAlignment="Center"
+                                            TextChanged="NumberTextBoxs_TextChanged" />
+                            </ws:StackPanel>
+
+                        </ws:StackPanel>
+                    </Border>
+                </Border>
+            </DockPanel>
         </DockPanel>
+
     </Grid>
 </Window>
