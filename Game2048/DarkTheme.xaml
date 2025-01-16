@@ -1,7 +1,12 @@
 ﻿<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:system="clr-namespace:System;assembly=mscorlib">
     <Color x:Key="ForegroundColor">#FFFFFF</Color>
     <Color x:Key="CardBackgroundColor">#59FFEFF9</Color>
+
     <SolidColorBrush x:Key="ForegroundBrush" Color="{StaticResource ForegroundColor}" />
     <SolidColorBrush x:Key="CardBackgroundBrush" Color="{StaticResource CardBackgroundColor}" />
+
+    <Color x:Key="TipForegroundColor">#80FFFFFF</Color>
+    <SolidColorBrush x:Key="TipForegroundBrush" Color="{StaticResource TipForegroundColor}" />
+
     <system:Boolean x:Key="IsDarkMode">True</system:Boolean>
 </ResourceDictionary>

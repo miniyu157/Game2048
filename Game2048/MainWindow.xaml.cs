@@ -4,6 +4,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Media.Animation;
 
 namespace Game2048
 {
@@ -115,12 +116,11 @@ namespace Game2048
         }
         #endregion
 
-        public MainWindow()
+        #region color
+        void SetColor(Color color)
         {
-            InitializeComponent();
-
-            LightColor = Color.FromArgb(255, 193, 230, 181);
-            DarkColor = Color.FromArgb(255, 56, 66, 52);
+            lightColor = color;
+            darkColor = GetDarkerColor(lightColor, 0.32);
             EleCho.WpfSuite.Controls.Button[] buttons = [resetBut, undoBut, autoBut];
             buttons.ToList().ForEach(x =>
             {
@@ -130,84 +130,30 @@ namespace Game2048
             });
             titleBorder.Background = GetGradientBrush(1);
 
-            SetupGrid(row, col, true);
-            InitializeGame();
-
-            PreviewKeyDown += MainWindow_PreviewKeyDown;
-        }
-
-        private const int minRow = 1; //最小行数(用户输入)
-        private const int minCol = 1; //最小列数(用户输入)
-        private const int maxRow = 20; //最大行数(用户输入)
-        private const int maxCol = 20; //最大列数(用户输入)
-        private static int originalRow = 4;
-        private static int originalCol = 4;
-        private static int row = originalRow;
-        private static int col = originalCol;
-
-        private const int minGameThreshold = 4; //最小临界值
-        private static int gameThreshold = 2048;
-
-        private int[,] grid = new int[row, col];
-        private readonly Random random = new();
-        private readonly Stack<int[,]> oldGridList = []; //历史记录
-
-        private const int autoPlayInterval = 10;
-
-        private static Color LightColor = Color.FromArgb(255, 255, 182, 193);
-        private static Color DarkColor = Color.FromArgb(255, 87, 49, 69);
-        private static Color GrayColor = Color.FromArgb(255, 38, 38, 38);
-
-        /// <summary>
-        /// 所有格子设置为0，并添加2和4。
-        /// </summary>
-        void InitializeGame()
-        {
-            for (int i = 0; i < row; i++)
-                for (int j = 0; j < col; j++)
-                    grid[i, j] = 0;
-
-            //AddRandomNum(2);
-            //AddRandomNum(4);
-
-            for (int i = 1; i <= grid.Length; i++)           //test colors
-                AddRandomNum((int)Math.Pow(2, i));
-
             UpdateUI();
         }
 
-        /// <summary>
-        /// 初始化网格行数列数。
-        /// </summary>
-        void SetupGrid(int newRow, int newCol, bool isInitialSetup = false)
+        private void ColorButton_Click(object sender, RoutedEventArgs e)
         {
-            if (!isInitialSetup)
-            {
-                int[,] newGrid = new int[newRow, newCol];
-                for (int i = 0; i < Math.Min(row, newRow); i++)
-                    for (int j = 0; j < Math.Min(col, newCol); j++)
-                        newGrid[i, j] = grid[i, j];
-
-                grid = (int[,])newGrid.Clone();
-
-                col = newCol;
-                row = newRow;
-
-                gameGrid.RowDefinitions.Clear();
-                gameGrid.ColumnDefinitions.Clear();
-            }
-
-            for (int i = 0; i < newRow; i++)
-            {
-                gameGrid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
-            }
-
-            for (int i = 0; i < newCol; i++)
-            {
-                gameGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-            }
+            SetColor(((SolidColorBrush)((Button)sender).Background).Color);
         }
 
+        static Color GetDarkerColor(Color lightColor, double factor = 0.7)
+        {
+            //限制 factor 在合理范围 [0, 1]
+            factor = Math.Clamp(factor, 0, 1);
+
+            //计算暗色
+            byte r = (byte)(lightColor.R * factor);
+            byte g = (byte)(lightColor.G * factor);
+            byte b = (byte)(lightColor.B * factor);
+
+            //返回新的颜色
+            return Color.FromArgb(lightColor.A, r, g, b);
+        }
+        #endregion
+
+        #region main button
         private void ResetBut_Click(object sender, RoutedEventArgs e)
         {
             StopAutoPlay();
@@ -244,15 +190,116 @@ namespace Game2048
                     break;
             }
         }
+        #endregion
+
+        private const int minRow = 1; //最小行数(用户输入)
+        private const int minCol = 1; //最小列数(用户输入)
+        private const int maxRow = 20; //最大行数(用户输入)
+        private const int maxCol = 20; //最大列数(用户输入)
+        private static int originalRow = 4;
+        private static int originalCol = 4;
+        private static int row = originalRow;
+        private static int col = originalCol;
+
+        private const int minGameThreshold = 4; //最小临界值
+        private static int gameThreshold = 2048;
+
+        private int[,] grid = new int[row, col];
+        private readonly Random random = new();
+        private readonly Stack<int[,]> oldGridList = []; //历史记录
+
+        private const int autoPlayInterval = 1;
+
+        private static Color lightColor = Color.FromArgb(255, 255, 182, 193);
+        private static Color darkColor = Color.FromArgb(255, 87, 49, 69);
+        private static Color GrayColor = Color.FromArgb(255, 38, 38, 38);
+
+        public MainWindow()
+        {
+            InitializeComponent();
+
+            SetupGrid(row, col, true);
+            InitializeGame();
+
+            PreviewKeyDown += MainWindow_PreviewKeyDown;
+        }
+
+        private void Button_Click(object sender, RoutedEventArgs e)
+        {
+            DoubleAnimation animation = new()
+            {
+                From = this.Width,
+                To = 650,
+                Duration = TimeSpan.FromSeconds(1),
+                EasingFunction = new QuadraticEase { EasingMode = EasingMode.EaseInOut }
+            };
+
+            BeginAnimation(Window.WidthProperty, animation);
+        }
+
+        /// <summary>
+        /// 所有格子设置为0，并添加2和4。
+        /// </summary>
+        void InitializeGame()
+        {
+            for (int i = 0; i < row; i++)
+                for (int j = 0; j < col; j++)
+                    grid[i, j] = 0;
+
+            AddRandomNum(2);
+            AddRandomNum(4);
+
+            UpdateUI();
+        }
+
+        /// <summary>
+        /// 初始化网格行数列数。
+        /// </summary>
+        void SetupGrid(int newRow, int newCol, bool isInitialSetup = false)
+        {
+            if (!isInitialSetup) //首次启动时不执行
+            {
+                int[,] newGrid = new int[newRow, newCol];
+                for (int i = 0; i < Math.Min(row, newRow); i++)
+                    for (int j = 0; j < Math.Min(col, newCol); j++)
+                        newGrid[i, j] = grid[i, j];
+
+                grid = (int[,])newGrid.Clone();
+
+                col = newCol;
+                row = newRow;
+
+                gameGrid.RowDefinitions.Clear();
+                gameGrid.ColumnDefinitions.Clear();
+            }
+
+            for (int i = 0; i < newRow; i++)
+            {
+                gameGrid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
+            }
+
+            for (int i = 0; i < newCol; i++)
+            {
+                gameGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            }
+        }
 
         private void MainWindow_PreviewKeyDown(object sender, KeyEventArgs e)
         {
-            if (e.Key != Key.Up && e.Key != Key.Down && e.Key != Key.Left && e.Key != Key.Right && e.Key != Key.W)
+            if (e.Key != Key.Up && e.Key != Key.Down && e.Key != Key.Left && e.Key != Key.Right && e.Key != Key.W && e.Key != Key.S && e.Key != Key.A && e.Key != Key.D)
             {
                 switch (e.Key)
                 {
                     case Key.Z:
+                        resetBut.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                        break;
+
+                    case Key.X:
                         undoBut.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                        break;
+
+                    case Key.C:
+                        autoBut.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
                         break;
                 }
                 return;
@@ -263,9 +310,9 @@ namespace Game2048
             bool moved = e.Key switch
             {
                 Key.Up or Key.W => Move(0, -1),
-                Key.Down => Move(0, 1),
-                Key.Left => Move(-1, 0),
-                Key.Right => Move(1, 0),
+                Key.Down or Key.S => Move(0, 1),
+                Key.Left or Key.A => Move(-1, 0),
+                Key.Right or Key.D => Move(1, 0),
                 _ => false
             };
 
@@ -356,17 +403,22 @@ namespace Game2048
         /// </summary>
         void UpdateTitle()
         {
+            int score = CalculateScore();
+            string scoreText = score == -1 ? "无法计算分数" : score.ToString();
+
             if (IsGameOver())
             {
                 scoreTitle.Text = "Game Over";
-                scoreContent.Text = $"Score: {CalculateScore()}";
-                scoreContent.Visibility = Visibility.Visible;
                 scoreTitle.FontSize = 20;
-                return;
+
+                scoreContent.Text = $"Score: {scoreText}";
+                scoreContent.Visibility = Visibility.Visible;
             }
             else
             {
+                scoreTitle.Text = scoreText;
                 scoreTitle.FontSize = 24;
+
                 scoreContent.Visibility = Visibility.Collapsed;
             }
         }
@@ -505,7 +557,7 @@ namespace Game2048
                             HorizontalAlignment = HorizontalAlignment.Center,
                             VerticalAlignment = VerticalAlignment.Center,
                             Foreground = Brushes.White,
-                            FontSize = 24,
+                            FontSize = 24
                         };
                         Border border = new()
                         {
@@ -515,47 +567,53 @@ namespace Game2048
                             Child = block
                         };
 
-                        //// 要测量的字体
-                        //string text = "Hello, World!";
-                        //Typeface typeface = new Typeface(new FontFamily("Arial"), FontStyles.Normal, FontWeights.Normal, FontStretches.Normal);
-                        //double fontSize = 12;
-
-                        //// 创建 FormattedText 对象
-                        //FormattedText formattedText = new FormattedText(
-                        //    text,
-                        //    System.Globalization.CultureInfo.CurrentCulture,
-                        //    FlowDirection.LeftToRight,
-                        //    typeface,
-                        //    fontSize,
-                        //    Brushes.Black);
-
-                        //// 获取字体的宽度和高度
-                        //double textWidth = formattedText.Width;
-                        //double textHeight = formattedText.Height;
-
-
                         Grid.SetRow(border, i);
                         Grid.SetColumn(border, j);
+
                         gameGrid.Children.Add(border);
-                        try
+
+                        border.SizeChanged += (sender, e) =>
                         {
-                            scoreTitle.Text = CalculateScore().ToString();
-                        }
-                        catch (Exception)
-                        {
-                            scoreTitle.Text = "无法计算分数";
-                        }
-                        UpdateTitle();
+                            //创建 FormattedText 对象
+                            FormattedText formattedText = new(
+                                block.Text,
+                                System.Globalization.CultureInfo.CurrentCulture,
+                                FlowDirection.LeftToRight,
+                                new Typeface(block.FontFamily, FontStyles.Normal, FontWeights.Normal, FontStretches.Normal),
+                                block.FontSize,
+                                Brushes.Black,
+                                1.0);
+                            double textWidth = formattedText.Width;
+                            double borderWidth = border.ActualWidth;
+
+                            if (textWidth > borderWidth)
+                            {
+                                block.FontSize = 24 * (borderWidth / formattedText.Width * 0.8);
+                            }
+                        };
+
+
                     }
                 }
             }
+
+            UpdateTitle();
         }
 
         /// <summary>
-        /// 计算分数。
+        /// 计算分数，若有单元格溢出则返回-1。
         /// </summary>
-        /// <returns>所有格子的总和-6.</returns>
-        int CalculateScore() => grid.Cast<int>().Sum() - 6;
+        /// <returns>所有格子的总和-6。</returns>
+        int CalculateScore()
+        {
+            int sum = -6;
+            foreach (int x in grid)
+            {
+                if (x >= int.MaxValue || x <= int.MinValue || x < 0) return -1;
+                sum += x;
+            }
+            return sum;
+        }
 
         /// <summary>
         /// 根据单元格值计算颜色。
@@ -569,9 +627,9 @@ namespace Game2048
 
             double ratio = Math.Log2(num) / Math.Log2(gameThreshold);
 
-            byte r = (byte)(LightColor.R + (DarkColor.R - LightColor.R) * ratio);
-            byte g = (byte)(LightColor.G + (DarkColor.G - LightColor.G) * ratio);
-            byte b = (byte)(LightColor.B + (DarkColor.B - LightColor.B) * ratio);
+            byte r = (byte)(lightColor.R + (darkColor.R - lightColor.R) * ratio);
+            byte g = (byte)(lightColor.G + (darkColor.G - lightColor.G) * ratio);
+            byte b = (byte)(lightColor.B + (darkColor.B - lightColor.B) * ratio);
 
             var gradientColor = Color.FromArgb(255, r, g, b);
             return new SolidColorBrush(gradientColor);
@@ -579,6 +637,23 @@ namespace Game2048
 
         [GeneratedRegex(@"\s+")]
         private static partial Regex SpaceRegex();
+
+        private void ColorTestButton_Click(object sender, RoutedEventArgs e)
+        {
+            resetBut.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+
+            int pow = 1;
+            for (int i = 0; i < row; i++)
+            {
+                for (int j = 0; j < col; j++)
+                {
+                    grid[i, j] = (int)Math.Pow(2, pow++);
+                }
+            }
+
+            UpdateUI();
+        }
+
 
     }
 }

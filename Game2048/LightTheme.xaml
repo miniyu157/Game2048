@@ -3,5 +3,9 @@
     <Color x:Key="CardBackgroundColor">#72FFEFF9</Color>
     <SolidColorBrush x:Key="ForegroundBrush" Color="{StaticResource ForegroundColor}" />
     <SolidColorBrush x:Key="CardBackgroundBrush" Color="{StaticResource CardBackgroundColor}" />
+
+    <Color x:Key="TipForegroundColor">#BF000000</Color>
+    <SolidColorBrush x:Key="TipForegroundBrush" Color="{StaticResource TipForegroundColor}" />
+
     <system:Boolean x:Key="IsDarkMode">False</system:Boolean>
 </ResourceDictionary>
