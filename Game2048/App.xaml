@@ -6,6 +6,7 @@
              xmlns:ws="https://schemas.elecho.dev/wpfsuite"
              StartupUri="MainWindow.xaml">
     <Application.Resources>
+        <!--#region-->
         <sys:String x:Key="WpfSuiteDesignName">SimpleDesign</sys:String>
 
         <Color x:Key="PrimaryColor">#0067c0</Color>
@@ -60,6 +61,7 @@
             <Setter Property="Background" Value="#EEFFFFFF" />
             <Setter Property="HoverBackground" Value="#88FFFFFF" />
             <Setter Property="PressedBackground" Value="#44FFFFFF" />
+            <Setter Property="Focusable" Value="False" />
         </Style>
 
         <Style BasedOn="{StaticResource {x:Type ws:ToggleButton}}" TargetType="{x:Type ws:ToggleButton}">
@@ -111,6 +113,7 @@
 
         <Style BasedOn="{StaticResource {x:Type ws:CheckBox}}" TargetType="{x:Type ws:CheckBox}">
             <Setter Property="CornerRadius" Value="2" />
+            <Setter Property="Focusable" Value="False" />
         </Style>
 
         <Style BasedOn="{StaticResource {x:Type ws:ListBox}}" TargetType="{x:Type ws:ListBox}">
@@ -161,17 +164,28 @@
         <Style BasedOn="{StaticResource {x:Type ws:Tooltip}}" TargetType="{x:Type ws:Tooltip}">
             <!--  nothing  -->
         </Style>
+        <!--#endregion-->
 
-        <Style x:Key="CustomButtonStyle" TargetType="ws:Button">
-            <Setter Property="Width" Value="50" />
-            <Setter Property="Height" Value="50" />
+        <Style x:Key="MainButtonStyle" TargetType="ws:Button">
+
+            <Setter Property="Height" Value="45" />
             <Setter Property="Background" Value="LightPink" />
             <Setter Property="BorderThickness" Value="0" />
             <Setter Property="CornerRadius" Value="10" />
             <Setter Property="FontSize" Value="14" />
-            <Setter Property="HoverBackground" Value="#efa9b5" />
-            <Setter Property="PressedBackground" Value="#e09daa" />
+            <Setter Property="HoverBackground" Value="#f2acb7" />
+            <Setter Property="PressedBackground" Value="#e5a3ad" />
             <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+        </Style>
+
+        <Style x:Key="IconButtonStyle" TargetType="ws:Button">
+            <Setter Property="Width" Value="{Binding Path=ActualHeight, RelativeSource={RelativeSource Mode=FindAncestor, AncestorType={x:Type ws:StackPanel}}}" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="CornerRadius" Value="3" />
+            <Setter Property="HoverBackground" Value="{DynamicResource IconHoverBackBrush}" />
+            <Setter Property="PressedBackground" Value="{DynamicResource IconHoverBackBrush}" />
+            <Setter Property="Focusable" Value="False" />
         </Style>
 
     </Application.Resources>
