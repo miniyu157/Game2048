@@ -446,7 +446,7 @@ namespace Game2048
         private void MainWindow_Closed(object? sender, EventArgs e)
         {
             App.SaveToBinary(GetConfig(), App.ConfigPath);
-            File.WriteAllText(Path.Combine(AppContext.BaseDirectory, "Game2048.config"), GetConfig().ToString());
+            //File.WriteAllText(Path.Combine(AppContext.BaseDirectory, "Game2048.config"), GetConfig().ToString());
         }
         #endregion
 

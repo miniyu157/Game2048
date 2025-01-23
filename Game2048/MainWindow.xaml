@@ -138,7 +138,7 @@
                                    Orientation="Horizontal"
                                    Spacing="4">
 
-                        <ws:Button Click="TipBut_Click" Style="{StaticResource IconButtonStyle}" ToolTip="设置">
+                        <ws:Button Click="TipBut_Click" Style="{StaticResource IconButtonStyle}" ToolTip="提示">
                             <Image Margin="2" Source="{StaticResource Icon_Tip}" />
                         </ws:Button>
                         <ws:Button Click="GithubBut_Click" Style="{StaticResource IconButtonStyle}" ToolTip="{StaticResource GithubLink}">
