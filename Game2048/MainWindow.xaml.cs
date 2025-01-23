@@ -1,8 +1,8 @@
-﻿using Microsoft.Win32;
+﻿
+using Microsoft.Win32;
 using System.Diagnostics;
 using System.IO;
-using System.Runtime.Serialization.Formatters.Binary;
-using System.Text.Json;
+using System.Text;
 using System.Text.RegularExpressions;
 using System.Windows;
 using System.Windows.Controls;
@@ -95,6 +95,21 @@ namespace Game2048
             ApplyNumberTextBoxInput(ThresholdTextBox, minGameThreshold, maxGameThreshold, 0.5f);
         }
 
+        private void AddAutoPlayIntervalBut_Click(object sender, RoutedEventArgs e)
+        {
+            ApplyNumberTextBoxInput(AutoPlayIntervalTextBox, minAutoPlayInterval, maxAutoPlayInterval, ref autoPlayInterval, 1, 50);
+        }
+
+        private void DecreaseAutoPlayIntervalBut_Click(object sender, RoutedEventArgs e)
+        {
+            ApplyNumberTextBoxInput(AutoPlayIntervalTextBox, minAutoPlayInterval, maxAutoPlayInterval, ref autoPlayInterval, 1, -50);
+        }
+
+        private void AutoPlayIntervalTextBox_TextChanged(object sender, TextChangedEventArgs e)
+        {
+            ApplyNumberTextBoxInput(AutoPlayIntervalTextBox, minAutoPlayInterval, maxAutoPlayInterval, ref autoPlayInterval);
+        }
+
         private void AddGridSizeBut_Click(object sender, RoutedEventArgs e)
         {
             ApplyNumberTextBoxInput(RowTextBox, minRow, maxRow, 1, 1);
@@ -114,11 +129,11 @@ namespace Game2048
         /// <param name="min"></param>
         /// <param name="max"></param>
         /// <param name="set"></param>
-        static void ApplyNumberTextBoxInput(TextBox textBox, int min, int max, ref int set)
+        static void ApplyNumberTextBoxInput(TextBox textBox, int min, int max, ref int set, float multiple = 1, int offset = 0)
         {
             //移除空白字符并限定范围
             string cleanedText = SpaceRegex().Replace(textBox.Text, "");
-            int value = string.IsNullOrEmpty(cleanedText) ? min : Math.Clamp(int.Parse(cleanedText), min, max);
+            int value = string.IsNullOrEmpty(cleanedText) ? min : (int)Math.Clamp(int.Parse(cleanedText) * multiple + offset, min, max);
             textBox.Text = value.ToString();
             set = value;
         }
@@ -269,7 +284,6 @@ namespace Game2048
             TipTextBlock.Text = "";
 
             step = 0;
-            gameOverCount = 0;
 
             oldGridList.Clear(); //一并重置历史记录
             SetupGrid(originalRow, originalCol); //恢复网格大小
@@ -338,36 +352,36 @@ namespace Game2048
         {
             while (!cts.IsCancellationRequested)
             {
-                await Task.Delay(autoPlayInterval, cts);
-
                 oldGridList.Push((int[,])grid.Clone());
-                bool moved = random.Next(4) switch
+
+                OptimalDirection[] optimalDirections = GetOptimalDirections();
+                OptimalDirection optimalDirection = optimalDirections[random.Next(optimalDirections.Length)];
+
+                Debug.WriteLine(string.Join(" or ", optimalDirections));
+
+                (int dx, int dy) = optimalDirection switch
                 {
-                    0 => Move(0, -1),  //up
-                    1 => Move(0, 1),   //down
-                    2 => Move(-1, 0),  //left
-                    3 => Move(1, 0),   //right
-                    _ => false
+                    OptimalDirection.Up => (0, -1),     //up
+                    OptimalDirection.Down => (0, 1),    //down
+                    OptimalDirection.Left => (-1, 0),   //left
+                    OptimalDirection.Right => (1, 0),   //right
+                    _ => (0, 0)
                 };
+                bool moved = Move(ref grid, dx, dy);
 
                 if (moved)
                 {
+                    step++;
+
                     AddRandomNum();
                     UpdateUI();
 
                     if (IsGameOver()) //游戏失败，停止运行
                     {
-                        if (IsAutoPlayStrength)
-                        {
-                            for (int i = 1; i <= 10; i++) UndoBut.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
-                            continue;
-                        }
-                        else
-                        {
-                            StopAutoPlay();
-                            return;
-                        }
+                        StopAutoPlay();
+                        return;
                     }
+                    await Task.Delay(autoPlayInterval, cts);
                 }
                 else
                 {
@@ -378,187 +392,61 @@ namespace Game2048
         #endregion
 
         #region app config
-        private static bool TryParseGrid(string? s, int row, int col, out int[,] @out)
+        Config GetConfig()
         {
-            @out = new int[0, 0];
+            SaveSection? saveSection = IsLoadSave ? new(
+                grid,
+                oldGridList,
+                step) : null;
 
-            if (string.IsNullOrEmpty(s))
-            {
-                return false;
-            }
-
-            var grid = new int[row, col];
-            var numbers = s.Split(' ');
-
-            if (numbers.Length != row * col)
-            {
-                return false;
-            }
-
-            int index = 0;
-
-            for (int i = 0; i < row; i++)
-            {
-                for (int j = 0; j < col; j++)
-                {
-                    if (int.TryParse(numbers[index++], out int n))
-                    {
-                        grid[i, j] = n;
-                    }
-                    else
-                    {
-                        return false;
-                    }
-                }
-            }
-
-            @out = grid;
-            return true;
-
-        }
-
-        private static bool TryParseGridList(string? s, int row, int col, out Stack<int[,]> @out)
-        {
-            @out = new Stack<int[,]>();
-
-            if (string.IsNullOrEmpty(s))
-            {
-                return false;
-            }
-
-            string[] grids = s.Split(',');
-
-            foreach (string gridStr in grids.Reverse())
-            {
-                if (TryParseGrid(gridStr.Trim(), row, col, out int[,] grid))
-                {
-                    @out.Push(grid);
-                }
-                else
-                {
-                    return false;
-                }
-            }
-
-            return true;
-        }
-
-        Config ParseFromText()
-        {
-            SaveSection saveSection = new();
-            SettingSection settingSection = new();
-
-            if (int.TryParse(App.Config["Setting:OriginalRow"], out int oriRow)) settingSection.OriginalRow = oriRow;
-            if (int.TryParse(App.Config["Setting:OriginalCol"], out int oriCol)) settingSection.OriginalCol = oriCol;
-            if (int.TryParse(App.Config["Setting:Row"], out int newRow)) settingSection.Row = newRow;
-            if (int.TryParse(App.Config["Setting:Col"], out int newCol)) settingSection.Col = newCol;
-            if (int.TryParse(App.Config["Setting:Threshold"], out int newThreshold)) settingSection.Threshold = newThreshold;
-            if (bool.TryParse(App.Config["Setting:IsAutoPlayStrength"], out bool b1)) settingSection.IsAutoPlayStrength = b1;
-            if (bool.TryParse(App.Config["Setting:IsExpandOnThreshold"], out bool b2)) settingSection.IsExpandOnThreshold = b2;
-            if (int.TryParse(App.Config["Setting:Theme"], out int theme)) settingSection.Theme = theme;
-            try
-            {
-                Color? themeColor = (Color)ColorConverter.ConvertFromString(App.Config["Setting:Color"]);
-                settingSection.Color = themeColor;
-            }
-            catch (Exception)
-            {
-                settingSection.Color = null;
-            }
-
-            if (TryParseGridList(App.Config["Save:GridList"], (int)settingSection.Row, (int)settingSection.Col, out Stack<int[,]> l))
-            {
-                saveSection.GridList = l;
-            }
-
-            if (TryParseGrid(App.Config["Save:Grid"], (int)settingSection.Row, (int)settingSection.Col, out int[,] g))
-            {
-                saveSection.Grid = (int[,])g.Clone();
-            }
+            SettingSection settingSection = new(
+                originalRow,
+                originalCol,
+                row,
+                col,
+                gameThreshold,
+                autoPlayInterval,
+                IsExpandOnThreshold,
+                ThemeComboBox.SelectedIndex,
+                ColorUtil.ColorToString(lightColor),
+                IsLoadSave);
 
             return new Config(saveSection, settingSection);
         }
-        public static void SaveToBinary(Config config, string filePath)
-        {
-            // 将对象序列化为 JSON 字符串
-            string json = JsonSerializer.Serialize(config);
-
-            // 保存为二进制文件
-            File.WriteAllBytes(filePath, System.Text.Encoding.UTF8.GetBytes(json));
-        }
-
-        public static Config LoadFromBinary(string filePath)
-        {
-            // 从文件中读取二进制数据并转换为 JSON 字符串
-            string json = System.Text.Encoding.UTF8.GetString(File.ReadAllBytes(filePath));
-
-            // 反序列化为对象
-            return JsonSerializer.Deserialize<Config>(json);
-        }
         bool LoadConfig()
         {
-            if (App.Config == null || !App.Config.GetChildren().Any())
-            {
-                return false;
-            }
+            if (App.Config == null) return false;
 
-            if (int.TryParse(App.Config["Setting:OriginalRow"], out int oriRow)) originalRow = oriRow;
-            if (int.TryParse(App.Config["Setting:OriginalCol"], out int oriCol)) originalCol = oriCol;
-            if (int.TryParse(App.Config["Setting:Row"], out int newRow)) row = newRow;
-            if (int.TryParse(App.Config["Setting:Col"], out int newCol)) col = newCol;
-            if (int.TryParse(App.Config["Setting:Threshold"], out int newThreshold)) gameThreshold = newThreshold;
-            if (bool.TryParse(App.Config["Setting:IsAutoPlayStrength"], out bool b1)) AutoPlayStrengthCheckBox.IsChecked = b1;
-            if (bool.TryParse(App.Config["Setting:IsExpandOnThreshold"], out bool b2)) ExpandOnThresholdCheckBox.IsChecked = b2;
-            if (int.TryParse(App.Config["Setting:Theme"], out int theme)) ThemeComboBox.SelectedIndex = theme;
-            try
-            {
-                Color themeColor = (Color)ColorConverter.ConvertFromString(App.Config["Setting:Color"]);
-                SetUIColor(themeColor);
-            }
-            catch (Exception) { }
+            SettingSection settingSection = App.Config.Setting;
+            originalRow = settingSection.OriginalRow;
+            originalCol = settingSection.OriginalCol;
+            row = settingSection.Row;
+            col = settingSection.Col;
+            gameThreshold = settingSection.Threshold;
+            autoPlayInterval = settingSection.AutoPlayInterval;
+            ExpandOnThresholdCheckBox.IsChecked = settingSection.IsExpandOnThreshold;
+            ThemeComboBox.SelectedIndex = settingSection.Theme;
+            lightColor = ColorUtil.StringToColor(settingSection.Color);
+            LoadSaveCheckBox.IsChecked = settingSection.LoadSave;
 
-            if (TryParseGridList(App.Config["Save:GridList"], row, col, out Stack<int[,]> l))
+            SaveSection? saveSection = App.Config.Save;
+            if (saveSection != null)
             {
-                oldGridList = l;
-            }
-
-            if (TryParseGrid(App.Config["Save:Grid"], row, col, out int[,] g))
-            {
-                grid = (int[,])g.Clone();
-                UpdateUI();
+                grid = saveSection.Grid;
+                oldGridList = saveSection.GridList;
+                step = saveSection.Step;
+                return true;
             }
             else
             {
                 return false;
             }
-
-            SaveToBinary(ParseFromText(), Environment.GetFolderPath(Environment.SpecialFolder.Desktop) + "\\1.dat");
-
-            return true;
         }
 
         private void MainWindow_Closed(object? sender, EventArgs e)
         {
-            using var sw = new StreamWriter("appsetting.ini");
-            string currentGrid = string.Join(' ', grid.Cast<int>());
-            string gridList = string.Join(", ", oldGridList.Select(grid => string.Join(" ", grid.Cast<int>())));
-
-            sw.WriteLine("[Save]");
-            sw.WriteLine($"Grid = {currentGrid}");
-            sw.WriteLine($"GridList = {gridList}");
-
-            sw.WriteLine();
-
-            sw.WriteLine("[Setting]");
-            sw.WriteLine($"Theme = {ThemeComboBox.SelectedIndex}");
-            sw.WriteLine($"IsAutoPlayStrength = {IsAutoPlayStrength}");
-            sw.WriteLine($"IsExpandOnThreshold = {IsExpandOnThreshold}");
-            sw.WriteLine($"Threshold = {gameThreshold}");
-            sw.WriteLine($"Row = {row}");
-            sw.WriteLine($"Col = {col}");
-            sw.WriteLine($"OriginalRow = {originalRow}");
-            sw.WriteLine($"OriginalCol = {originalCol}");
-            sw.WriteLine($"Color = {lightColor}");
+            App.SaveToBinary(GetConfig(), App.ConfigPath);
+            File.WriteAllText(Path.Combine(AppContext.BaseDirectory, "Game2048.config"), GetConfig().ToString());
         }
         #endregion
 
@@ -580,34 +468,39 @@ namespace Game2048
         private readonly Random random = new();
         private Stack<int[,]> oldGridList = []; //历史记录
 
-        private const int autoPlayInterval = 1;
+        private static int autoPlayInterval = 200;
+        private const int minAutoPlayInterval = 1;
+        private const int maxAutoPlayInterval = 1000;
 
         private static Color lightColor = Color.FromArgb(255, 255, 182, 193);
         private static Color darkColor = Color.FromArgb(255, 87, 49, 69);
         private static Color blackColor = Color.FromArgb(255, 38, 38, 38);
 
-        private bool IsAutoPlayStrength => AutoPlayStrengthCheckBox.IsChecked ?? false;
         private bool IsExpandOnThreshold => ExpandOnThresholdCheckBox.IsChecked ?? false;
+        private bool IsLoadSave => LoadSaveCheckBox.IsChecked ?? false;
         #endregion
 
         public MainWindow()
         {
             InitializeComponent();
+
+            Left = SystemParameters.PrimaryScreenWidth / 2 - Width;
+            Top = (SystemParameters.PrimaryScreenHeight - Height) / 2;
+
             InitializeColorPanel();
             LoadThemes();
 
-            bool loadconfiged = LoadConfig();
-
-            SetupGrid(row, col, true); //true表示不会进行网格扩容
-
-            if (!loadconfiged)
+            bool isLoad = LoadConfig();
+            if (isLoad)
             {
-                grid = new int[row, col];
-                InitializeGame();
+                SetupGrid(row, col, false);
+                SetUIColor(lightColor);
             }
             else
             {
-                //Mes
+                SetupGrid(row, col, true);
+                grid = new int[row, col];
+                InitializeGame();
             }
 
             oriColText = originalCol.ToString();
@@ -617,12 +510,21 @@ namespace Game2048
             ColTextBox.Text = originalCol.ToString();
             RowTextBox.Text = originalRow.ToString();
             ThresholdTextBox.Text = gameThreshold.ToString();
+            AutoPlayIntervalTextBox.Text = autoPlayInterval.ToString();
 
             PreviewKeyDown += MainWindow_PreviewKeyDown;
-
             Closed += MainWindow_Closed;
 
-            AutoPlayStrengthCheckBox.Click += (sender, e) => { UpdateScoreDetail(); }; //刷新显示底栏
+            //Loaded += MainWindow_Loaded;
+            AutoPlayIntervalTextBox.TextChanged += AutoPlayIntervalTextBox_TextChanged;
+        }
+
+        private void MainWindow_Loaded(object sender, RoutedEventArgs e)
+        {
+            toggle = true;
+            Width = MainLeft.ActualWidth;
+            RightColumnD.Width = new GridLength(0);
+            MainRight.Opacity = 0;
         }
 
         /// <summary>
@@ -674,19 +576,26 @@ namespace Game2048
 
         private void MainWindow_PreviewKeyDown(object sender, KeyEventArgs e)
         {
+            if (e.Key == Key.Z)
+            {
+                UndoBut.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                return;
+            }
+
             oldGridList.Push((int[,])grid.Clone());
 
             bool moved = e.Key switch
             {
-                Key.Up or Key.W => Move(0, -1),
-                Key.Down or Key.S => Move(0, 1),
-                Key.Left or Key.A => Move(-1, 0),
-                Key.Right or Key.D => Move(1, 0),
+                Key.Up or Key.W => Move(ref grid, 0, -1),
+                Key.Down or Key.S => Move(ref grid, 0, 1),
+                Key.Left or Key.A => Move(ref grid, -1, 0),
+                Key.Right or Key.D => Move(ref grid, 1, 0),
                 _ => false
             };
 
             if (moved)
             {
+                step++;
                 AddRandomNum();
                 UpdateUI();
             }
@@ -729,12 +638,11 @@ namespace Game2048
         void UpdateScoreDetail()
         {
             ScoreDetailBlock.Text = $"步数: {step}";
-            if (IsAutoPlayStrength) ScoreDetailBlock.Text += $", 自动游玩失败次数: {gameOverCount}";
             ScoreDetailBlock.Text += $", 已合成: {grid.Cast<int>().Max()}";
         }
 
         //定义移动函数，接受水平和垂直方向的偏移量作为参数
-        bool Move(int dx, int dy)
+        static bool Move(ref int[,] grid, int dx, int dy)
         {
             // 标记是否发生了移动
             bool moved = false;
@@ -782,16 +690,11 @@ namespace Game2048
                 }
             }
 
-            if (moved)
-            {
-                step++;
-            }
             // 返回是否发生了移动
             return moved;
         }
 
         int step = 0;
-        int gameOverCount = 0;
 
         /// <summary>
         /// 检查位置是否合法。
@@ -818,7 +721,6 @@ namespace Game2048
                 }
             }
 
-            if (IsAutoPlayStrength) gameOverCount++;
             return true; //无空位或可合并，游戏结束
         }
 
@@ -885,26 +787,6 @@ namespace Game2048
                         Grid.SetColumn(border, j);
 
                         GameGrid.Children.Add(border);
-
-                        border.SizeChanged += (sender, e) =>
-                        {
-                            //创建 FormattedText 对象
-                            FormattedText formattedText = new(
-                                block.Text,
-                                System.Globalization.CultureInfo.CurrentCulture,
-                                FlowDirection.LeftToRight,
-                                new Typeface(block.FontFamily, FontStyles.Normal, FontWeights.Normal, FontStretches.Normal),
-                                block.FontSize,
-                                Brushes.Black,
-                                1.0);
-                            double textWidth = formattedText.Width;
-                            double borderWidth = border.ActualWidth;
-
-                            if (textWidth > borderWidth)
-                            {
-                                block.FontSize = 24 * (borderWidth / formattedText.Width * 0.8);
-                            }
-                        };
                     }
                 }
             }
@@ -937,24 +819,9 @@ namespace Game2048
         }
 
         bool toggle = false;
+
         private async void SettingBut_Click(object sender, RoutedEventArgs e)
         {
-            //switch (MainRight.Visibility)
-            //{
-            //    case Visibility.Visible:
-            //        MainRight.Visibility = Visibility.Collapsed;
-
-            //        RightColumnD.Width = new GridLength(0);
-            //        Width = MainLeft.ActualWidth + 16;
-            //        break;
-
-            //    case Visibility.Collapsed:
-            //        MainRight.Visibility = Visibility.Visible;
-
-            //        RightColumnD.Width = new GridLength(270);
-            //        Width = MainLeft.ActualWidth + 16 + 270;
-            //        break;
-            //}
             toggle = !toggle;
             double leftColumnDWidth = MainLeft.ActualWidth;
             double rightColumnDWidth = 270;
@@ -968,7 +835,7 @@ namespace Game2048
                     {
                         From = Width,
                         To = leftColumnDWidth + 16,
-                        Duration = TimeSpan.FromMilliseconds(1000),
+                        Duration = TimeSpan.FromMilliseconds(800),
                         EasingFunction = new QuadraticEase { EasingMode = EasingMode.EaseInOut }
                     };
                     DoubleAnimation opacityAnim = new()
@@ -995,7 +862,7 @@ namespace Game2048
                     {
                         From = Width,
                         To = leftColumnDWidth + 16 + rightColumnDWidth,
-                        Duration = TimeSpan.FromMilliseconds(1000),
+                        Duration = TimeSpan.FromMilliseconds(800),
                         EasingFunction = new QuadraticEase { EasingMode = EasingMode.EaseInOut }
                     };
                     DoubleAnimation opacityAnim2 = new()
@@ -1007,7 +874,6 @@ namespace Game2048
                     };
                     widthAnim2.Completed += (a, b) =>
                     {
-
                         LeftColumnD.Width = new GridLength(1, GridUnitType.Star); //解除锁定左面板大小
                     };
 
@@ -1017,5 +883,217 @@ namespace Game2048
                     break;
             }
         }
+
+        private void TipBut_Click(object sender, RoutedEventArgs e)
+        {
+            _ = CalculateSituationScore(grid, true);
+
+            MessageBox.Show(GetOptimalDirectionStr());
+        }
+
+        enum OptimalDirection
+        {
+            Up, Down, Left, Right
+        }
+
+        /// <summary>
+        /// 模拟移动网格计算水平和竖直方向的最高分数。
+        /// </summary>
+        /// <param name="grid"></param>
+        /// <param name="dx"></param>
+        /// <param name="dy"></param>
+        /// <returns></returns>
+        int CalculateMoveScore(int[,] grid, int dx, int dy)
+        {
+            int[,] gridCopy = (int[,])grid.Clone();
+            Move(ref gridCopy, dx, dy);
+
+            (int upGridVerScore, int upGridHorScore) = CalculateSituationScore(gridCopy);
+
+            if (gridCopy.Cast<int>().SequenceEqual(grid.Cast<int>()))
+            {
+                return 0;
+            }
+            else
+            {
+                return Math.Max(upGridVerScore, upGridHorScore);
+            }
+        }
+
+        /// <summary>
+        /// 获取最佳移动方向的分析过程。
+        /// </summary>
+        /// <returns></returns>
+        string GetOptimalDirectionStr()
+        {
+            (int verScore, int horScore) = CalculateSituationScore(grid);
+
+            double up = CalculateMoveScore(grid, 0, -1) * (verScore == 0 ? 0.9 : 1); //如果当前不可合成，则减少下一步合成分数的权重
+            double down = CalculateMoveScore(grid, 0, 1) * (verScore == 0 ? 0.9 : 1);
+            double left = CalculateMoveScore(grid, -1, 0) * (horScore == 0 ? 0.9 : 1);
+            double right = CalculateMoveScore(grid, 1, 0) * (horScore == 0 ? 0.9 : 1);
+
+            double upScore = verScore + up;
+            double downScore = verScore + down;
+            double leftScore = horScore + left;
+            double rightScore = horScore + right;
+
+            StringBuilder sb = new();
+            sb.AppendLine($"Base: Hor {horScore}, Ver {verScore}");
+            sb.AppendLine($"Move: Up {up}, Down {down}, Left {left}, Right {right}");
+            sb.AppendLine($"Comprehensive: Up {upScore}, Down {downScore}, Left {leftScore}, Right {rightScore}");
+            sb.AppendLine($"=> {string.Join(" or ", GetOptimalDirections())}");
+
+            return sb.ToString();
+        }
+
+        /// <summary>
+        /// 获取最佳移动方向。
+        /// </summary>
+        /// <returns></returns>
+        OptimalDirection[] GetOptimalDirections()
+        {
+            (int verScore, int horScore) = CalculateSituationScore(grid);
+
+            double up = CalculateMoveScore(grid, 0, -1) * (verScore == 0 ? 0.9 : 1); //如果当前不可合成，则减少下一步合成分数的权重
+            double down = CalculateMoveScore(grid, 0, 1) * (verScore == 0 ? 0.9 : 1);
+            double left = CalculateMoveScore(grid, -1, 0) * (horScore == 0 ? 0.9 : 1);
+            double right = CalculateMoveScore(grid, 1, 0) * (horScore == 0 ? 0.9 : 1);
+
+            double upScore = verScore + up;
+            double downScore = verScore + down;
+            double leftScore = horScore + left;
+            double rightScore = horScore + right;
+
+            // 存储方向和对应分数的字典
+            var directionScores = new Dictionary<OptimalDirection, double>
+            {
+                { OptimalDirection.Up, upScore },
+                { OptimalDirection.Down, downScore },
+                { OptimalDirection.Left, leftScore },
+                { OptimalDirection.Right, rightScore }
+            };
+
+            // 找到最大分数
+            double maxScore = directionScores.Values.Max();
+
+            // 返回所有具有最大分数的方向
+            return directionScores
+                .Where(kv => kv.Value == maxScore)
+                .Select(kv => kv.Key)
+                .ToArray();
+        }
+
+        /// <summary>
+        /// 评估当前网格，返回局势分数。
+        /// </summary>
+        /// <param name="grid"></param>
+        /// <param name="highLight"></param>
+        /// <returns></returns>
+        (int, int) CalculateSituationScore(int[,] grid, bool highLight = false)
+        {
+            HashSet<Point> verMergeablePoints = []; //可合并
+            HashSet<Point> horMergeablePoints = [];
+
+            int verScore = 0;
+            int horScore = 0;
+
+            for (int i = 0; i < row; i++)
+            {
+                for (int j = 0; j < col; j++)
+                {
+                    if (grid[i, j] == 0) continue; // 当前格为 0，无需延申
+                    if (verMergeablePoints.Contains(new Point(j, i))) continue; // 当前格如果已经可合并，无需延申
+
+                    int distanceMax = row - i - 1; // 可延申距离的上限
+
+                    for (int distance = 1; distance <= distanceMax; distance++) // 从 1 开始延申
+                    {
+                        int next = i + distance;
+
+                        if (!IsValid(next, j)) break; // 越界检查
+
+                        if (grid[next, j] == grid[i, j]) // 可合并
+                        {
+                            Point p1 = new(j, i);
+                            Point p2 = new(j, next);
+
+                            if (highLight)
+                            {
+                                LightGrid(p1);
+                                LightGrid(p2);
+                            }
+                            verMergeablePoints.Add(p1);
+                            verMergeablePoints.Add(p2);
+                            verScore += grid[i, j];
+                            verScore += grid[next, j];
+                            break; // 合并后无需继续延申
+                        }
+                        else if (grid[next, j] != 0) // 遇到阻碍
+                        {
+                            break;
+                        }
+                        // 如果是 0，则自动继续下一轮循环
+                    }
+                }
+            }
+
+            for (int i = 0; i < row; i++)
+            {
+                for (int j = 0; j < col; j++)
+                {
+                    if (grid[i, j] == 0) continue; // 当前格为 0，无需延申
+                    if (horMergeablePoints.Contains(new Point(j, i))) continue; // 当前格如果是被合并目标，无需延申
+
+                    int distanceMax = col - j - 1; // 可延申距离的上限
+
+                    for (int distance = 1; distance <= distanceMax; distance++) // 从 1 开始延申
+                    {
+                        int next = j + distance;
+
+                        if (!IsValid(i, next)) break; // 越界检查
+
+                        if (grid[i, next] == grid[i, j]) // 可合并
+                        {
+                            Point p1 = new(j, i);
+                            Point p2 = new(next, i);
+
+                            if (highLight)
+                            {
+                                LightGrid(p1);
+                                LightGrid(p2);
+                            }
+                            horMergeablePoints.Add(p1);
+                            horMergeablePoints.Add(p2);
+                            horScore += grid[i, j];
+                            horScore += grid[i, next];
+                            break; // 合并后无需继续延申
+                        }
+                        else if (grid[i, next] != 0) // 遇到阻碍
+                        {
+                            break;
+                        }
+                        // 如果是 0，则自动继续下一轮循环
+                    }
+                }
+            }
+
+            return (verScore, horScore);
+        }
+
+        void LightGrid(Point point)
+        {
+            Border? border = (Border?)GameGrid.Children.Cast<UIElement>()
+                .FirstOrDefault(e => Grid.GetRow(e) == point.Y && Grid.GetColumn(e) == point.X);
+
+            if (border != null)
+            {
+                border.Background = Brushes.White;
+                ((TextBlock)border.Child).Foreground = Brushes.Black;
+                border.BorderBrush = Brushes.Black;
+                border.BorderThickness = new Thickness(2);
+            }
+        }
+
     }
 }

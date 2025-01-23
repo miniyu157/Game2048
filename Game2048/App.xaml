@@ -6,6 +6,7 @@
              xmlns:ws="https://schemas.elecho.dev/wpfsuite"
              StartupUri="MainWindow.xaml">
     <Application.Resources>
+
         <!--#region-->
         <sys:String x:Key="WpfSuiteDesignName">SimpleDesign</sys:String>
 

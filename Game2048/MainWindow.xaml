@@ -19,7 +19,6 @@
             <ResourceDictionary.MergedDictionaries>
                 <ResourceDictionary Source="Icons.xaml" />
             </ResourceDictionary.MergedDictionaries>
-
             <sys:String x:Key="GithubLink">https://github.com/miniyu157/Game2048</sys:String>
 
             <Style x:Key="NumberTextBoxStyle" TargetType="ws:TextBox">
@@ -36,10 +35,11 @@
                 <Setter Property="Background" Value="#EEFFFFFF" />
                 <Setter Property="HoverBackground" Value="#88FFFFFF" />
             </Style>
+
         </ResourceDictionary>
     </Window.Resources>
 
-    <Grid>
+    <Grid x:Name="MainGrid">
         <Grid.ColumnDefinitions>
             <ColumnDefinition Name="LeftColumnD" Width="*" />
             <ColumnDefinition Name="RightColumnD" Width="270" />
@@ -100,7 +100,9 @@
                             <Border Margin="0,3,0,0">
                                 <ws:StackPanel Spacing="2">
                                     <Image Name="AutoPlayButIcon" Width="20" Height="20" Source="{StaticResource Icon_Autoplay}" />
-                                    <TextBlock Name="AutoPlayButBlock" FontSize="11" TextAlignment="Center">自动</TextBlock>
+                                    <TextBlock Name="AutoPlayButBlock" FontSize="11" TextAlignment="Center">
+                                        自动
+                                    </TextBlock>
                                 </ws:StackPanel>
                             </Border>
                         </ws:Button>
@@ -120,25 +122,32 @@
             <Border Grid.Row="4" Margin="10,0" Background="{DynamicResource CardBackBrush}" CornerRadius="10">
                 <Grid>
                     <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="8*" />
-                        <ColumnDefinition Width="2*" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="*" />
                     </Grid.ColumnDefinitions>
 
                     <TextBlock Name="ScoreDetailBlock"
                                Margin="12,0"
                                VerticalAlignment="Center"
                                Foreground="{DynamicResource ForeBrush}"
-                               Text="TextBlock" />
+                               Text="TextBlock"
+                               ToolTip="{Binding RelativeSource={RelativeSource Self}, Path=Text}" />
                     <ws:StackPanel Grid.Column="1"
                                    Margin="6"
                                    HorizontalAlignment="Right"
                                    Orientation="Horizontal"
                                    Spacing="4">
 
-                        <ws:Button Name="GithubBut" Click="GithubBut_Click" Style="{StaticResource IconButtonStyle}" ToolTip="{StaticResource GithubLink}">
+                        <ws:Button Click="TipBut_Click" Style="{StaticResource IconButtonStyle}" ToolTip="设置">
+                            <Image Margin="2" Source="{StaticResource Icon_Tip}" />
+                        </ws:Button>
+                        <ws:Button Click="GithubBut_Click" Style="{StaticResource IconButtonStyle}" ToolTip="{StaticResource GithubLink}">
                             <Image Margin="2" Source="{StaticResource Icon_Github}" />
                         </ws:Button>
-                        <ws:Button Click="SettingBut_Click" Style="{StaticResource IconButtonStyle}" ToolTip="Setting">
+                        <ws:Button Click="ColorTestButton_Click" Style="{StaticResource IconButtonStyle}" ToolTip="测试颜色">
+                            <Image Margin="2" Source="{StaticResource Icon_Colors}" />
+                        </ws:Button>
+                        <ws:Button Click="SettingBut_Click" Style="{StaticResource IconButtonStyle}" ToolTip="设置">
                             <Image Margin="2" Source="{StaticResource Icon_Setting}" />
                         </ws:Button>
                     </ws:StackPanel>
@@ -168,12 +177,12 @@
                                 </ws:ComboBox>
                             </ws:StackPanel>
 
-                            <!--  更强力的自动游玩  -->
-                            <ws:CheckBox Name="AutoPlayStrengthCheckBox"
+                            <!--  到达临界值时扩容  -->
+                            <ws:CheckBox Name="LoadSaveCheckBox"
                                          Margin="20,0"
-                                         Content="更强力的自动游玩"
+                                         Content="启动时继续已保存的游戏"
                                          Foreground="{DynamicResource ForeBrush}"
-                                         IsChecked="{Binding IsAutoPlayEnabled}" />
+                                         IsChecked="True" />
 
                             <!--  到达临界值时扩容  -->
                             <ws:CheckBox Name="ExpandOnThresholdCheckBox"
@@ -185,7 +194,7 @@
                             <!--  临界值  -->
                             <ws:StackPanel Margin="20,0" Orientation="Horizontal" Spacing="3">
                                 <ws:StackPanel Orientation="Horizontal" Spacing="10">
-                                    <TextBlock VerticalAlignment="Center" Foreground="{DynamicResource ForeBrush}" Text="临界值" />
+                                    <TextBlock VerticalAlignment="Center" Background="Transparent" Foreground="{DynamicResource ForeBrush}" Text="临界值" />
                                     <ws:TextBox Name="ThresholdTextBox" Width="100" Style="{StaticResource NumberTextBoxStyle}" />
                                 </ws:StackPanel>
                                 <ws:StackPanel Orientation="Vertical" Spacing="1">
@@ -199,6 +208,28 @@
                                                Height="15"
                                                Padding="0"
                                                Click="DecreaseThresholdBut_Click"
+                                               Content="▼"
+                                               FontSize="8" />
+                                </ws:StackPanel>
+                            </ws:StackPanel>
+
+                            <!--  临界值  -->
+                            <ws:StackPanel Margin="20,0" Orientation="Horizontal" Spacing="3">
+                                <ws:StackPanel Orientation="Horizontal" Spacing="10">
+                                    <TextBlock VerticalAlignment="Center" Foreground="{DynamicResource ForeBrush}" Text="自动游玩间隔" />
+                                    <ws:TextBox Name="AutoPlayIntervalTextBox" Width="64" Style="{StaticResource NumberTextBoxStyle}" />
+                                </ws:StackPanel>
+                                <ws:StackPanel Orientation="Vertical" Spacing="1">
+                                    <ws:Button Width="{Binding Path=ActualHeight, RelativeSource={RelativeSource Mode=FindAncestor, AncestorType={x:Type ws:StackPanel}}}"
+                                               Height="15"
+                                               Padding="0"
+                                               Click="AddAutoPlayIntervalBut_Click"
+                                               Content="▲"
+                                               FontSize="8" />
+                                    <ws:Button Width="{Binding Path=ActualHeight, RelativeSource={RelativeSource Mode=FindAncestor, AncestorType={x:Type ws:StackPanel}}}"
+                                               Height="15"
+                                               Padding="0"
+                                               Click="DecreaseAutoPlayIntervalBut_Click"
                                                Content="▼"
                                                FontSize="8" />
                                 </ws:StackPanel>
@@ -235,8 +266,6 @@
                                        Foreground="{DynamicResource HighlightTipForeBrush}"
                                        Text="tiptiptip" />
 
-                            <!--  填满  -->
-                            <ws:Button Margin="20,0" Click="ColorTestButton_Click" Content="填满(测试颜色)" />
                         </ws:StackPanel>
 
                         <!--  颜色  -->

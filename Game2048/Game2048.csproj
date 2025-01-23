@@ -14,8 +14,7 @@
 
   <ItemGroup>
     <PackageReference Include="EleCho.WpfSuite" Version="0.9.16" />
-    <PackageReference Include="Microsoft.Extensions.Configuration.Ini" Version="9.0.1" />
-    <PackageReference Include="Microsoft.Extensions.Configuration.Json" Version="9.0.1" />
+    <PackageReference Include="MessagePack" Version="3.1.1" />
   </ItemGroup>
 
   <ItemGroup>
