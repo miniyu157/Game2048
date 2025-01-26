@@ -1,21 +1,7 @@
 ﻿using MessagePack;
-using System.Windows.Media;
 
 namespace Game2048
 {
-    public static class ColorUtil
-    {
-        public static string ColorToString(Color color)
-        {
-            return $"#{color.R:X2}{color.G:X2}{color.B:X2}";
-        }
-
-        public static Color StringToColor(string colorString)
-        {
-            return (Color)ColorConverter.ConvertFromString(colorString);
-        }
-    }
-
     [MessagePackObject]
     public class Config(SaveSection? save, SettingSection setting)
     {

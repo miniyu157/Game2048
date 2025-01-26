@@ -9,16 +9,8 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <None Remove="setting_48dp.svg" />
-  </ItemGroup>
-
-  <ItemGroup>
     <PackageReference Include="EleCho.WpfSuite" Version="0.9.16" />
     <PackageReference Include="MessagePack" Version="3.1.1" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <Resource Include="setting_48dp.svg" />
   </ItemGroup>
 
   <ItemGroup>

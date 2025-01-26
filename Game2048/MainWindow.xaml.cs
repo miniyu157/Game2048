@@ -1,7 +1,5 @@
-﻿
-using Microsoft.Win32;
+﻿using Microsoft.Win32;
 using System.Diagnostics;
-using System.IO;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Windows;
@@ -17,8 +15,10 @@ namespace Game2048
     ///</summary>
     public partial class MainWindow : Window
     {
+        public static MainWindow Instance { get; set; }
+
         #region theme toggle
-        enum Theme
+        public enum Theme
         {
             Light,
             Dark
@@ -41,17 +41,15 @@ namespace Game2048
             Application.Current.Resources.MergedDictionaries.Add(resourceDictionary);
         }
 
-        private void ThemeComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        public Theme GetTheme()
         {
             switch (ThemeComboBox.SelectedIndex)
             {
                 case 0:
-                    SetTheme(Theme.Light);
-                    break;
+                    return Theme.Light;
 
                 case 1:
-                    SetTheme(Theme.Dark);
-                    break;
+                    return Theme.Dark;
 
                 case 2:
                     using (var registryKey = Registry.CurrentUser.OpenSubKey(@"Software\Microsoft\Windows\CurrentVersion\Themes\Personalize"))
@@ -61,17 +59,22 @@ namespace Game2048
                             switch (value) //0 = Dark mode, 1 = Light mode
                             {
                                 case 0:
-                                    SetTheme(Theme.Dark);
-                                    break;
+                                    return Theme.Dark;
 
                                 case 1:
-                                    SetTheme(Theme.Light);
-                                    break;
+                                    return Theme.Light;
                             }
                         }
                     }
                     break;
             }
+
+            return Theme.Dark;
+        }
+
+        private void ThemeComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            SetTheme(GetTheme());
         }
         #endregion
 
@@ -181,23 +184,18 @@ namespace Game2048
             {
                 if (x is EleCho.WpfSuite.Controls.Button button)
                 {
-                    Color color = BrushToColor(button.Background);
-                    button.HoverBackground = new SolidColorBrush(GetDarkerColor(color, 0.95));
-                    button.PressedBackground = new SolidColorBrush(GetDarkerColor(color, 0.9));
+                    Color color = ColorUtil.BrushToColor(button.Background);
+                    button.HoverBackground = new SolidColorBrush(ColorUtil.GetDarkerColor(color, 0.95));
+                    button.PressedBackground = new SolidColorBrush(ColorUtil.GetDarkerColor(color, 0.9));
                 }
             }
-        }
-
-        static Color BrushToColor(Brush brush)
-        {
-            return ((SolidColorBrush)brush).Color;
         }
 
         //ColorPanel 中的按钮
         private void ColorButton_Click(object sender, RoutedEventArgs e)
         {
             Button but = (Button)sender;
-            Color color = BrushToColor(but.Background);
+            Color color = ColorUtil.BrushToColor(but.Background);
             SetUIColor(color);
         }
 
@@ -224,10 +222,10 @@ namespace Game2048
         /// <returns></returns>
         static SolidColorBrush GetGradientBrush(int num)
         {
-            if (num > gameThreshold)
+            if (num > colorThreshold)
                 return new SolidColorBrush(blackColor);
 
-            double ratio = Math.Log2(num) / Math.Log2(gameThreshold);
+            double ratio = Math.Log2(num) / Math.Log2(colorThreshold);
 
             byte r = (byte)(lightColor.R + (darkColor.R - lightColor.R) * ratio);
             byte g = (byte)(lightColor.G + (darkColor.G - lightColor.G) * ratio);
@@ -237,35 +235,21 @@ namespace Game2048
             return new SolidColorBrush(gradientColor);
         }
 
-        void SetUIColor(Color color)
+        public void SetUIColor(Color color)
         {
             lightColor = color;
-            darkColor = GetDarkerColor(lightColor, 0.32);
+            darkColor = ColorUtil.GetDarkerColor(lightColor, 0.32);
 
             EleCho.WpfSuite.Controls.Button[] buttons = [ResetBut, UndoBut, AutoBut];
             buttons.ToList().ForEach(x =>
             {
-                x.Background = new SolidColorBrush(GetDarkerColor(lightColor, 1));
-                x.HoverBackground = new SolidColorBrush(GetDarkerColor(lightColor, 0.95));
-                x.PressedBackground = new SolidColorBrush(GetDarkerColor(lightColor, 0.9));
+                x.Background = new SolidColorBrush(ColorUtil.GetDarkerColor(lightColor, 1));
+                x.HoverBackground = new SolidColorBrush(ColorUtil.GetDarkerColor(lightColor, 0.95));
+                x.PressedBackground = new SolidColorBrush(ColorUtil.GetDarkerColor(lightColor, 0.9));
             });
             TitleBorder.Background = GetGradientBrush(1);
 
             UpdateUI();
-        }
-
-        static Color GetDarkerColor(Color lightColor, double factor = 0.7)
-        {
-            //限制 factor 在合理范围 [0, 1]
-            factor = Math.Clamp(factor, 0, 1);
-
-            //计算暗色
-            byte r = (byte)(lightColor.R * factor);
-            byte g = (byte)(lightColor.G * factor);
-            byte b = (byte)(lightColor.B * factor);
-
-            //返回新的颜色
-            return Color.FromArgb(lightColor.A, r, g, b);
         }
         #endregion
 
@@ -328,7 +312,7 @@ namespace Game2048
         void StartAutoPlay()
         {
             AutoPlayButBlock.Text = "停止";
-            AutoPlayButIcon.Source = (ImageSource)FindResource("Icon_Autopause");
+            AutoPlayButIcon.Source = (ImageSource)Resources["Icon_Autopause"];
             cts = new CancellationTokenSource();
             _ = RunAutoTask(cts.Token);
         }
@@ -339,7 +323,7 @@ namespace Game2048
         void StopAutoPlay()
         {
             AutoPlayButBlock.Text = "自动";
-            AutoPlayButIcon.Source = (ImageSource)FindResource("Icon_Autoplay");
+            AutoPlayButIcon.Source = (ImageSource)Resources["Icon_Autoplay"];
             cts.Cancel();
         }
 
@@ -408,7 +392,7 @@ namespace Game2048
                 autoPlayInterval,
                 IsExpandOnThreshold,
                 ThemeComboBox.SelectedIndex,
-                ColorUtil.ColorToString(lightColor),
+                ColorUtil.ColorToString(ThemeColor),
                 IsLoadSave);
 
             return new Config(saveSection, settingSection);
@@ -472,17 +456,22 @@ namespace Game2048
         private const int minAutoPlayInterval = 1;
         private const int maxAutoPlayInterval = 1000;
 
+        private const int colorThreshold = 2048;
         private static Color lightColor = Color.FromArgb(255, 255, 182, 193);
         private static Color darkColor = Color.FromArgb(255, 87, 49, 69);
         private static Color blackColor = Color.FromArgb(255, 38, 38, 38);
 
+        public static Color ThemeColor => lightColor;
         private bool IsExpandOnThreshold => ExpandOnThresholdCheckBox.IsChecked ?? false;
         private bool IsLoadSave => LoadSaveCheckBox.IsChecked ?? false;
+
         #endregion
 
         public MainWindow()
         {
             InitializeComponent();
+
+            Instance = this;
 
             Left = SystemParameters.PrimaryScreenWidth / 2 - Width;
             Top = (SystemParameters.PrimaryScreenHeight - Height) / 2;
@@ -515,16 +504,7 @@ namespace Game2048
             PreviewKeyDown += MainWindow_PreviewKeyDown;
             Closed += MainWindow_Closed;
 
-            //Loaded += MainWindow_Loaded;
             AutoPlayIntervalTextBox.TextChanged += AutoPlayIntervalTextBox_TextChanged;
-        }
-
-        private void MainWindow_Loaded(object sender, RoutedEventArgs e)
-        {
-            toggle = true;
-            Width = MainLeft.ActualWidth;
-            RightColumnD.Width = new GridLength(0);
-            MainRight.Opacity = 0;
         }
 
         /// <summary>
@@ -755,7 +735,7 @@ namespace Game2048
                 if (maxLog2 >= row - originalRow + thresholdLog2 && maxLog2 >= thresholdLog2)
                 {
                     SetupGrid(row + 1, col + 1);
-                    MessageBox.Show($"网格已被扩容为{col}x{row}，突破你的极限！");
+                    Dialog.Show($"网格已被扩容为{col}x{row}，突破你的极限！");
                 }
             }
             GameGrid.Children.Clear();
@@ -814,7 +794,7 @@ namespace Game2048
 
         private void GithubBut_Click(object sender, RoutedEventArgs e)
         {
-            string link = (string)FindResource("GithubLink");
+            string link = (string)Resources["GithubLink"];
             Process.Start(new ProcessStartInfo(link) { UseShellExecute = true });
         }
 
@@ -834,7 +814,7 @@ namespace Game2048
                     DoubleAnimation widthAnim = new()
                     {
                         From = Width,
-                        To = leftColumnDWidth + 16,
+                        To = leftColumnDWidth,
                         Duration = TimeSpan.FromMilliseconds(800),
                         EasingFunction = new QuadraticEase { EasingMode = EasingMode.EaseInOut }
                     };
@@ -861,7 +841,7 @@ namespace Game2048
                     DoubleAnimation widthAnim2 = new()
                     {
                         From = Width,
-                        To = leftColumnDWidth + 16 + rightColumnDWidth,
+                        To = leftColumnDWidth + rightColumnDWidth,
                         Duration = TimeSpan.FromMilliseconds(800),
                         EasingFunction = new QuadraticEase { EasingMode = EasingMode.EaseInOut }
                     };
@@ -888,7 +868,28 @@ namespace Game2048
         {
             _ = CalculateSituationScore(grid, true);
 
-            MessageBox.Show(GetOptimalDirectionStr());
+            var b01 = Dialog.GetDialogButton("显示详情", (sender, e) =>
+            {
+                Dialog.Show(GetOptimalDirectionStr());
+            });
+            var b02 = Dialog.GetDialogButton("Github", (sender, e) =>
+            {
+                Image image = new()
+                {
+                    Width = 100,
+                    Height = 100,
+                    Source = (ImageSource)Resources["Icon_Github"]
+                };
+                var b1 = Dialog.GetDialogButton("打开链接", (sender, e) =>
+                {
+                    Process.Start(new ProcessStartInfo((string)Resources["GithubLink"]) { UseShellExecute = true });
+                    Dialog.InstanceClose();
+                });
+                Dialog.Show(image, [b1]);
+            });
+            Dialog.Show($"{string.Join(" or ", GetOptimalDirections())}", [b01, b02]);
+
+
         }
 
         enum OptimalDirection
@@ -942,7 +943,8 @@ namespace Game2048
             sb.AppendLine($"Base: Hor {horScore}, Ver {verScore}");
             sb.AppendLine($"Move: Up {up}, Down {down}, Left {left}, Right {right}");
             sb.AppendLine($"Comprehensive: Up {upScore}, Down {downScore}, Left {leftScore}, Right {rightScore}");
-            sb.AppendLine($"=> {string.Join(" or ", GetOptimalDirections())}");
+            sb.AppendLine();
+            sb.AppendLine($"{string.Join(" or ", GetOptimalDirections())}");
 
             return sb.ToString();
         }
@@ -1095,5 +1097,20 @@ namespace Game2048
             }
         }
 
+        private void HueSlider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
+        {
+            Color color = ColorUtil.HslToRgb((float)e.NewValue, 0.8f, 0.86f);
+            SetUIColor(color);
+        }
+
+        private void ThemeColorBut_Click(object sender, RoutedEventArgs e)
+        {
+            ThemeColorPopup.IsOpen = !ThemeColorPopup.IsOpen;
+        }
+
+        private void ThemeColorPopup_LostFocus(object sender, RoutedEventArgs e)
+        {
+            ThemeColorPopup.IsOpen = false;
+        }
     }
 }
