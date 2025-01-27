@@ -14,12 +14,9 @@ namespace Game2048
     /// </summary>
     public partial class Dialog : Window
     {
-        private static Dialog Instance { get; set; } = new();
+        public void UpdateColor() => InitializeColor();
 
-        public static void InstanceClose()
-        {
-            Instance?.Close();
-        }
+        public static Dialog Instance { get; set; } = new();
 
         private Dialog()
         {
@@ -51,7 +48,7 @@ namespace Game2048
             Owner.SizeChanged += OwnerSizeAndLocationChanged;
         }
 
-        private Dialog(object content, WSButton[]? buttons = null) : this()
+        public Dialog(object content, WSButton[]? buttons = null) : this()
         {
             UIElement element = content switch
             {
@@ -116,6 +113,7 @@ namespace Game2048
             {
                 button.Click += clickEventHandler;
             }
+
             return button;
         }
 

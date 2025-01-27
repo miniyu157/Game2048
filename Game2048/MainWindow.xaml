@@ -173,7 +173,6 @@
 
                             <ws:Popup x:Name="ThemeColorPopup"
                                       AllowsTransparency="True"
-                                      LostFocus="ThemeColorPopup_LostFocus"
                                       Placement="Bottom"
                                       PlacementTarget="{Binding ElementName=ThemeColorBut}"
                                       PopupAnimation="Fade">
@@ -321,15 +320,15 @@
                             <!--  颜色  -->
                             <ws:StackPanel Margin="20,10" VerticalAlignment="Bottom" DockPanel.Dock="Bottom" Spacing="5">
                                 <ws:UniformGrid x:Name="ColorPanel" HorizontalSpacing="2" VerticalSpacing="2">
-                                    <ws:Button Height="33" Background="LightPink" Click="ColorButton_Click" />
-                                    <ws:Button Background="#FF75EFD0" Click="ColorButton_Click" />
-                                    <ws:Button Background="#FFC1E6B5" Click="ColorButton_Click" />
-                                    <ws:Button Background="#FFADC3EF" Click="ColorButton_Click" />
-                                    <ws:Button Background="#FFE7BEF7" Click="ColorButton_Click" />
-                                    <ws:Button Background="#FFC5C5C5" Click="ColorButton_Click" />
-                                    <ws:Button Background="#FFEC9ECC" Click="ColorButton_Click" />
-                                    <ws:Button Background="#FFE4E1A6" Click="ColorButton_Click" />
-                                    <ws:Button Background="#FFE8CAAB" Click="ColorButton_Click" />
+                                    <ws:Button Height="33" Background="#FFE6B0B0" Click="ColorButton_Click" />
+                                    <ws:Button Background="#FFE6D4B0" Click="ColorButton_Click" />
+                                    <ws:Button Background="#FFD4E6B0" Click="ColorButton_Click" />
+                                    <ws:Button Background="#FFB0E6B0" Click="ColorButton_Click" />
+                                    <ws:Button Background="#FFB0E6D4" Click="ColorButton_Click" />
+                                    <ws:Button Background="#FFB0D4E6" Click="ColorButton_Click" />
+                                    <ws:Button Background="#FFB0B0E6" Click="ColorButton_Click" />
+                                    <ws:Button Background="#FFD4B0E6" Click="ColorButton_Click" />
+                                    <ws:Button Background="#FFE6B0D4" Click="ColorButton_Click" />
                                 </ws:UniformGrid>
                                 <TextBlock FontSize="11" Foreground="{DynamicResource TipForeBrush}" Text="单击切换主题颜色" TextAlignment="Center" />
                             </ws:StackPanel>

@@ -15,7 +15,12 @@ namespace Game2048
     ///</summary>
     public partial class MainWindow : Window
     {
-        public static MainWindow Instance { get; set; }
+        private static MainWindow? _mainWindow = null;
+        public static MainWindow Instance
+        {
+            get => _mainWindow ?? new MainWindow();
+            private set => _mainWindow = value;
+        }
 
         #region theme toggle
         public enum Theme
@@ -250,6 +255,11 @@ namespace Game2048
             TitleBorder.Background = GetGradientBrush(1);
 
             UpdateUI();
+
+            if (isShowed && Dialog.Instance != null)
+            {
+                Dialog.Instance.UpdateColor();
+            }
         }
         #endregion
 
@@ -505,6 +515,14 @@ namespace Game2048
             Closed += MainWindow_Closed;
 
             AutoPlayIntervalTextBox.TextChanged += AutoPlayIntervalTextBox_TextChanged;
+
+            Loaded += MainWindow_Loaded;
+        }
+
+        bool isShowed = false;
+        private void MainWindow_Loaded(object sender, RoutedEventArgs e)
+        {
+            isShowed = true;
         }
 
         /// <summary>
@@ -872,24 +890,8 @@ namespace Game2048
             {
                 Dialog.Show(GetOptimalDirectionStr());
             });
-            var b02 = Dialog.GetDialogButton("Github", (sender, e) =>
-            {
-                Image image = new()
-                {
-                    Width = 100,
-                    Height = 100,
-                    Source = (ImageSource)Resources["Icon_Github"]
-                };
-                var b1 = Dialog.GetDialogButton("打开链接", (sender, e) =>
-                {
-                    Process.Start(new ProcessStartInfo((string)Resources["GithubLink"]) { UseShellExecute = true });
-                    Dialog.InstanceClose();
-                });
-                Dialog.Show(image, [b1]);
-            });
-            Dialog.Show($"{string.Join(" or ", GetOptimalDirections())}", [b01, b02]);
 
-
+            Dialog.Show($"{string.Join(" or ", GetOptimalDirections())}", [b01]);
         }
 
         enum OptimalDirection
@@ -1099,18 +1101,13 @@ namespace Game2048
 
         private void HueSlider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
         {
-            Color color = ColorUtil.HslToRgb((float)e.NewValue, 0.8f, 0.86f);
+            Color color = ColorUtil.ConvertFromString($"hsv({e.NewValue}, 23.1%, 90.2%)");
             SetUIColor(color);
         }
 
         private void ThemeColorBut_Click(object sender, RoutedEventArgs e)
         {
             ThemeColorPopup.IsOpen = !ThemeColorPopup.IsOpen;
-        }
-
-        private void ThemeColorPopup_LostFocus(object sender, RoutedEventArgs e)
-        {
-            ThemeColorPopup.IsOpen = false;
         }
     }
 }
