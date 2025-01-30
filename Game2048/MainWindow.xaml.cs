@@ -1,4 +1,5 @@
-﻿using Microsoft.Win32;
+﻿using Game2048.ColorConv;
+using Microsoft.Win32;
 using System.Diagnostics;
 using System.Text;
 using System.Text.RegularExpressions;
@@ -22,7 +23,176 @@ namespace Game2048
             private set => _mainWindow = value;
         }
 
-        #region theme toggle
+        #region 自动游玩算法
+        enum OptimalDirection
+        {
+            Up, Down, Left, Right
+        }
+
+        /// <summary>
+        /// 获取最佳移动方向的分析过程。
+        /// </summary>
+        /// <returns></returns>
+        string GetOptimalDirectionStr()
+        {
+            (int verScore, int horScore) = CalculateSituationScore(grid);
+
+            double up = CalculateMoveScore(grid, 0, -1) * (verScore == 0 ? 0.9 : 1); //如果当前不可合成，则减少下一步合成分数的权重
+            double down = CalculateMoveScore(grid, 0, 1) * (verScore == 0 ? 0.9 : 1);
+            double left = CalculateMoveScore(grid, -1, 0) * (horScore == 0 ? 0.9 : 1);
+            double right = CalculateMoveScore(grid, 1, 0) * (horScore == 0 ? 0.9 : 1);
+
+            double upScore = verScore + up;
+            double downScore = verScore + down;
+            double leftScore = horScore + left;
+            double rightScore = horScore + right;
+
+            StringBuilder sb = new();
+            sb.AppendLine($"Base: Hor {horScore}, Ver {verScore}");
+            sb.AppendLine($"Move: Up {up}, Down {down}, Left {left}, Right {right}");
+            sb.AppendLine($"Comprehensive: Up {upScore}, Down {downScore}, Left {leftScore}, Right {rightScore}");
+            sb.AppendLine();
+            sb.AppendLine($"{string.Join(" or ", GetOptimalDirections())}");
+
+            return sb.ToString();
+        }
+
+        /// <summary>
+        /// 获取最佳移动方向。
+        /// </summary>
+        /// <returns></returns>
+        OptimalDirection[] GetOptimalDirections()
+        {
+            (int verScore, int horScore) = CalculateSituationScore(grid);
+
+            double up = CalculateMoveScore(grid, 0, -1) * (verScore == 0 ? 0.9 : 1); //如果当前不可合成，则减少下一步合成分数的权重
+            double down = CalculateMoveScore(grid, 0, 1) * (verScore == 0 ? 0.9 : 1);
+            double left = CalculateMoveScore(grid, -1, 0) * (horScore == 0 ? 0.9 : 1);
+            double right = CalculateMoveScore(grid, 1, 0) * (horScore == 0 ? 0.9 : 1);
+
+            double upScore = verScore + up;
+            double downScore = verScore + down;
+            double leftScore = horScore + left;
+            double rightScore = horScore + right;
+
+            // 存储方向和对应分数的字典
+            var directionScores = new Dictionary<OptimalDirection, double>
+            {
+                { OptimalDirection.Up, upScore },
+                { OptimalDirection.Down, downScore },
+                { OptimalDirection.Left, leftScore },
+                { OptimalDirection.Right, rightScore }
+            };
+
+            // 找到最大分数
+            double maxScore = directionScores.Values.Max();
+
+            // 返回所有具有最大分数的方向
+            return directionScores
+                .Where(kv => kv.Value == maxScore)
+                .Select(kv => kv.Key)
+                .ToArray();
+        }
+
+        /// <summary>
+        /// 评估当前网格，返回局势分数。
+        /// </summary>
+        /// <param name="grid"></param>
+        /// <param name="highLight"></param>
+        /// <returns></returns>
+        (int, int) CalculateSituationScore(int[,] grid, bool highLight = false)
+        {
+            HashSet<Point> verMergeablePoints = []; //可合并
+            HashSet<Point> horMergeablePoints = [];
+
+            int verScore = 0;
+            int horScore = 0;
+
+            for (int i = 0; i < row; i++)
+            {
+                for (int j = 0; j < col; j++)
+                {
+                    if (grid[i, j] == 0) continue; // 当前格为 0，无需延申
+                    if (verMergeablePoints.Contains(new Point(j, i))) continue; // 当前格如果已经可合并，无需延申
+
+                    int distanceMax = row - i - 1; // 可延申距离的上限
+
+                    for (int distance = 1; distance <= distanceMax; distance++) // 从 1 开始延申
+                    {
+                        int next = i + distance;
+
+                        if (!IsValid(next, j)) break; // 越界检查
+
+                        if (grid[next, j] == grid[i, j]) // 可合并
+                        {
+                            Point p1 = new(j, i);
+                            Point p2 = new(j, next);
+
+                            if (highLight)
+                            {
+                                LightGrid(p1);
+                                LightGrid(p2);
+                            }
+                            verMergeablePoints.Add(p1);
+                            verMergeablePoints.Add(p2);
+                            verScore += grid[i, j];
+                            verScore += grid[next, j];
+                            break; // 合并后无需继续延申
+                        }
+                        else if (grid[next, j] != 0) // 遇到阻碍
+                        {
+                            break;
+                        }
+                        // 如果是 0，则自动继续下一轮循环
+                    }
+                }
+            }
+
+            for (int i = 0; i < row; i++)
+            {
+                for (int j = 0; j < col; j++)
+                {
+                    if (grid[i, j] == 0) continue; // 当前格为 0，无需延申
+                    if (horMergeablePoints.Contains(new Point(j, i))) continue; // 当前格如果是被合并目标，无需延申
+
+                    int distanceMax = col - j - 1; // 可延申距离的上限
+
+                    for (int distance = 1; distance <= distanceMax; distance++) // 从 1 开始延申
+                    {
+                        int next = j + distance;
+
+                        if (!IsValid(i, next)) break; // 越界检查
+
+                        if (grid[i, next] == grid[i, j]) // 可合并
+                        {
+                            Point p1 = new(j, i);
+                            Point p2 = new(next, i);
+
+                            if (highLight)
+                            {
+                                LightGrid(p1);
+                                LightGrid(p2);
+                            }
+                            horMergeablePoints.Add(p1);
+                            horMergeablePoints.Add(p2);
+                            horScore += grid[i, j];
+                            horScore += grid[i, next];
+                            break; // 合并后无需继续延申
+                        }
+                        else if (grid[i, next] != 0) // 遇到阻碍
+                        {
+                            break;
+                        }
+                        // 如果是 0，则自动继续下一轮循环
+                    }
+                }
+            }
+
+            return (verScore, horScore);
+        }
+        #endregion
+
+        #region 主题切换
         public enum Theme
         {
             Light,
@@ -83,7 +253,7 @@ namespace Game2048
         }
         #endregion
 
-        #region textbox
+        #region 文本框限制
         private void NumberTextBoxs_PreviewKeyDown(object sender, KeyEventArgs e)
         {
             if (e.Key == Key.Left || e.Key == Key.Right || e.Key == Key.Up || e.Key == Key.Down ||
@@ -182,7 +352,20 @@ namespace Game2048
         string oriThresholdText;
         #endregion
 
-        #region theme color
+        #region 主题颜色切换
+        private void HueSlider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
+        {
+            var color = HsvColor.FromString($"{e.NewValue}, 23.1%, 90.2%");
+            SetUIColor(color);
+
+            Debug.WriteLine($"{e.NewValue}: {color.hue}");
+        }
+
+        private void ThemeColorBut_Click(object sender, RoutedEventArgs e)
+        {
+            ThemeColorPopup.IsOpen = !ThemeColorPopup.IsOpen;
+        }
+
         void InitializeColorPanel()
         {
             foreach (var x in ColorPanel.Children)
@@ -263,7 +446,7 @@ namespace Game2048
         }
         #endregion
 
-        #region main button
+        #region 三个按钮
         //重置游戏并应用网格大小和临界值
         private void ResetBut_Click(object sender, RoutedEventArgs e)
         {
@@ -313,7 +496,7 @@ namespace Game2048
         }
         #endregion
 
-        #region autoplay
+        #region 自动游玩
         CancellationTokenSource cts = new();
 
         /// <summary>
@@ -351,8 +534,6 @@ namespace Game2048
                 OptimalDirection[] optimalDirections = GetOptimalDirections();
                 OptimalDirection optimalDirection = optimalDirections[random.Next(optimalDirections.Length)];
 
-                Debug.WriteLine(string.Join(" or ", optimalDirections));
-
                 (int dx, int dy) = optimalDirection switch
                 {
                     OptimalDirection.Up => (0, -1),     //up
@@ -385,7 +566,7 @@ namespace Game2048
         }
         #endregion
 
-        #region app config
+        #region 配置文件
         Config GetConfig()
         {
             SaveSection? saveSection = IsLoadSave ? new(
@@ -444,7 +625,7 @@ namespace Game2048
         }
         #endregion
 
-        #region field
+        #region 字段
         private const int minRow = 1; //最小行数
         private const int minCol = 1; //最小列数
         private const int maxRow = 20; //最大行数
@@ -894,11 +1075,6 @@ namespace Game2048
             Dialog.Show($"{string.Join(" or ", GetOptimalDirections())}", [b01]);
         }
 
-        enum OptimalDirection
-        {
-            Up, Down, Left, Right
-        }
-
         /// <summary>
         /// 模拟移动网格计算水平和竖直方向的最高分数。
         /// </summary>
@@ -923,168 +1099,6 @@ namespace Game2048
             }
         }
 
-        /// <summary>
-        /// 获取最佳移动方向的分析过程。
-        /// </summary>
-        /// <returns></returns>
-        string GetOptimalDirectionStr()
-        {
-            (int verScore, int horScore) = CalculateSituationScore(grid);
-
-            double up = CalculateMoveScore(grid, 0, -1) * (verScore == 0 ? 0.9 : 1); //如果当前不可合成，则减少下一步合成分数的权重
-            double down = CalculateMoveScore(grid, 0, 1) * (verScore == 0 ? 0.9 : 1);
-            double left = CalculateMoveScore(grid, -1, 0) * (horScore == 0 ? 0.9 : 1);
-            double right = CalculateMoveScore(grid, 1, 0) * (horScore == 0 ? 0.9 : 1);
-
-            double upScore = verScore + up;
-            double downScore = verScore + down;
-            double leftScore = horScore + left;
-            double rightScore = horScore + right;
-
-            StringBuilder sb = new();
-            sb.AppendLine($"Base: Hor {horScore}, Ver {verScore}");
-            sb.AppendLine($"Move: Up {up}, Down {down}, Left {left}, Right {right}");
-            sb.AppendLine($"Comprehensive: Up {upScore}, Down {downScore}, Left {leftScore}, Right {rightScore}");
-            sb.AppendLine();
-            sb.AppendLine($"{string.Join(" or ", GetOptimalDirections())}");
-
-            return sb.ToString();
-        }
-
-        /// <summary>
-        /// 获取最佳移动方向。
-        /// </summary>
-        /// <returns></returns>
-        OptimalDirection[] GetOptimalDirections()
-        {
-            (int verScore, int horScore) = CalculateSituationScore(grid);
-
-            double up = CalculateMoveScore(grid, 0, -1) * (verScore == 0 ? 0.9 : 1); //如果当前不可合成，则减少下一步合成分数的权重
-            double down = CalculateMoveScore(grid, 0, 1) * (verScore == 0 ? 0.9 : 1);
-            double left = CalculateMoveScore(grid, -1, 0) * (horScore == 0 ? 0.9 : 1);
-            double right = CalculateMoveScore(grid, 1, 0) * (horScore == 0 ? 0.9 : 1);
-
-            double upScore = verScore + up;
-            double downScore = verScore + down;
-            double leftScore = horScore + left;
-            double rightScore = horScore + right;
-
-            // 存储方向和对应分数的字典
-            var directionScores = new Dictionary<OptimalDirection, double>
-            {
-                { OptimalDirection.Up, upScore },
-                { OptimalDirection.Down, downScore },
-                { OptimalDirection.Left, leftScore },
-                { OptimalDirection.Right, rightScore }
-            };
-
-            // 找到最大分数
-            double maxScore = directionScores.Values.Max();
-
-            // 返回所有具有最大分数的方向
-            return directionScores
-                .Where(kv => kv.Value == maxScore)
-                .Select(kv => kv.Key)
-                .ToArray();
-        }
-
-        /// <summary>
-        /// 评估当前网格，返回局势分数。
-        /// </summary>
-        /// <param name="grid"></param>
-        /// <param name="highLight"></param>
-        /// <returns></returns>
-        (int, int) CalculateSituationScore(int[,] grid, bool highLight = false)
-        {
-            HashSet<Point> verMergeablePoints = []; //可合并
-            HashSet<Point> horMergeablePoints = [];
-
-            int verScore = 0;
-            int horScore = 0;
-
-            for (int i = 0; i < row; i++)
-            {
-                for (int j = 0; j < col; j++)
-                {
-                    if (grid[i, j] == 0) continue; // 当前格为 0，无需延申
-                    if (verMergeablePoints.Contains(new Point(j, i))) continue; // 当前格如果已经可合并，无需延申
-
-                    int distanceMax = row - i - 1; // 可延申距离的上限
-
-                    for (int distance = 1; distance <= distanceMax; distance++) // 从 1 开始延申
-                    {
-                        int next = i + distance;
-
-                        if (!IsValid(next, j)) break; // 越界检查
-
-                        if (grid[next, j] == grid[i, j]) // 可合并
-                        {
-                            Point p1 = new(j, i);
-                            Point p2 = new(j, next);
-
-                            if (highLight)
-                            {
-                                LightGrid(p1);
-                                LightGrid(p2);
-                            }
-                            verMergeablePoints.Add(p1);
-                            verMergeablePoints.Add(p2);
-                            verScore += grid[i, j];
-                            verScore += grid[next, j];
-                            break; // 合并后无需继续延申
-                        }
-                        else if (grid[next, j] != 0) // 遇到阻碍
-                        {
-                            break;
-                        }
-                        // 如果是 0，则自动继续下一轮循环
-                    }
-                }
-            }
-
-            for (int i = 0; i < row; i++)
-            {
-                for (int j = 0; j < col; j++)
-                {
-                    if (grid[i, j] == 0) continue; // 当前格为 0，无需延申
-                    if (horMergeablePoints.Contains(new Point(j, i))) continue; // 当前格如果是被合并目标，无需延申
-
-                    int distanceMax = col - j - 1; // 可延申距离的上限
-
-                    for (int distance = 1; distance <= distanceMax; distance++) // 从 1 开始延申
-                    {
-                        int next = j + distance;
-
-                        if (!IsValid(i, next)) break; // 越界检查
-
-                        if (grid[i, next] == grid[i, j]) // 可合并
-                        {
-                            Point p1 = new(j, i);
-                            Point p2 = new(next, i);
-
-                            if (highLight)
-                            {
-                                LightGrid(p1);
-                                LightGrid(p2);
-                            }
-                            horMergeablePoints.Add(p1);
-                            horMergeablePoints.Add(p2);
-                            horScore += grid[i, j];
-                            horScore += grid[i, next];
-                            break; // 合并后无需继续延申
-                        }
-                        else if (grid[i, next] != 0) // 遇到阻碍
-                        {
-                            break;
-                        }
-                        // 如果是 0，则自动继续下一轮循环
-                    }
-                }
-            }
-
-            return (verScore, horScore);
-        }
-
         void LightGrid(Point point)
         {
             Border? border = (Border?)GameGrid.Children.Cast<UIElement>()
@@ -1099,15 +1113,5 @@ namespace Game2048
             }
         }
 
-        private void HueSlider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
-        {
-            Color color = ColorUtil.ConvertFromString($"hsv({e.NewValue}, 23.1%, 90.2%)");
-            SetUIColor(color);
-        }
-
-        private void ThemeColorBut_Click(object sender, RoutedEventArgs e)
-        {
-            ThemeColorPopup.IsOpen = !ThemeColorPopup.IsOpen;
-        }
     }
 }
